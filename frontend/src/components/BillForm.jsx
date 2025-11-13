@@ -8,6 +8,8 @@ export default function BillForm({ onSaved }) {
     const [price, setPrice] = useState('');
     const [userName, setUserName] = useState(localStorage.getItem('gb_user') || 'User1');
     const [items, setItems] = useState([]);
+    const [users, setUsers] = useState([]); // available users
+    const [products, setProducts] = useState([]); // available product descriptions
 
     const descRef = useRef(null);
     const qtyRef = useRef(null);
@@ -17,13 +19,57 @@ export default function BillForm({ onSaved }) {
     useEffect(() => {
         const saved = localStorage.getItem('gb_cart');
         if (saved) setItems(JSON.parse(saved));
+        // load saved users and products
+        const su = localStorage.getItem('gb_users');
+        const sp = localStorage.getItem('gb_products');
+        const uarr = su ? JSON.parse(su) : ['User1'];
+        const parr = sp ? JSON.parse(sp) : ['General Item'];
+        setUsers(uarr);
+        setProducts(parr);
+        // ensure userName exists in users
+        if (!uarr.includes(userName)) {
+            setUserName(uarr[0] || 'User1');
+            localStorage.setItem('gb_user', uarr[0] || 'User1');
+        }
         // focus first input on mount
-        setTimeout(() => descRef.current && descRef.current.focus(), 50);
+        setTimeout(() => {
+            // if desc is a select, focus qty instead so flow continues
+            qtyRef.current && qtyRef.current.focus();
+        }, 50);
     }, []);
 
     function saveCart(next) {
         setItems(next);
         localStorage.setItem('gb_cart', JSON.stringify(next));
+    }
+
+    function saveUsers(next) {
+        setUsers(next);
+        localStorage.setItem('gb_users', JSON.stringify(next));
+    }
+
+    function saveProducts(next) {
+        setProducts(next);
+        localStorage.setItem('gb_products', JSON.stringify(next));
+    }
+
+    function addNewUser() {
+        const name = window.prompt('Enter user name');
+        if (!name) return;
+        const next = Array.from(new Set([...(users || []), name]));
+        saveUsers(next);
+        setUserName(name);
+        localStorage.setItem('gb_user', name);
+    }
+
+    function addNewProduct() {
+        const name = window.prompt('Enter item name');
+        if (!name) return;
+        const next = Array.from(new Set([...(products || []), name]));
+        saveProducts(next);
+        setDesc(name);
+        // focus quantity for new entry
+        setTimeout(() => qtyRef.current && qtyRef.current.focus(), 50);
     }
 
     function addItem() {
@@ -124,10 +170,27 @@ export default function BillForm({ onSaved }) {
     return (
         <div>
             <h3>Billing App</h3>
-            <label style={{ display: 'block', marginBottom: 6 }}>User: <input value={userName} onChange={e => { setUserName(e.target.value); localStorage.setItem('gb_user', e.target.value) }} /></label>
+            <label style={{ display: 'block', marginBottom: 6 }}>
+                User:
+                <select value={userName} onChange={e => {
+                    const v = e.target.value;
+                    if (v === '__add__') { addNewUser(); return; }
+                    setUserName(v); localStorage.setItem('gb_user', v);
+                }}>
+                    {(users || []).map(u => <option key={u} value={u}>{u}</option>)}
+                    <option value="__add__">+ Add user...</option>
+                </select>
+            </label>
             <div style={{ marginBottom: 8 }}>
                 <label>Item description</label>
-                <input ref={descRef} value={desc} onKeyDown={onDescKey} onChange={e => setDesc(e.target.value)} placeholder="Item description" />
+                <select ref={descRef} value={desc} onChange={e => {
+                    const v = e.target.value;
+                    if (v === '__add__') { addNewProduct(); return; }
+                    setDesc(v);
+                }} onKeyDown={onDescKey}>
+                    {(products || []).map(p => <option key={p} value={p}>{p}</option>)}
+                    <option value="__add__">+ Add item...</option>
+                </select>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
